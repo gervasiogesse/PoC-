@@ -20,3 +20,4 @@ BIGDL é uma biblioteca distribuida de Deep Learning para o Apache Spark. Com BI
 </p>
 
 #### 1.3. MACRO ARQUITETURA
+![Arquitetura 1!](img/ProjetoDSsec.png "Arq1")
