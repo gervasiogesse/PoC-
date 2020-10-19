@@ -1,4 +1,4 @@
-package Exemplos
+package examples
 import com.intel.analytics.bigdl._
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.tensor._

@@ -1,4 +1,4 @@
-package Exemplos
+package examples
 
 import breeze.linalg.SparseVector
 import breeze.numerics.sqrt

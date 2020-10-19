@@ -1,4 +1,4 @@
-package Exemplos
+package examples
 
 import com.intel.analytics.bigdl.dlframes.DLClassifier
 import com.intel.analytics.bigdl.nn.{ClassNLLCriterion, Linear, LogSoftMax, Sequential}

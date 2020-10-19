@@ -1,38 +1,40 @@
-package Exemplos
+package examples
+
+import breeze.numerics.sqrt
 import com.intel.analytics.bigdl.BIGDL_VERSION
 import com.intel.analytics.bigdl.nn.{ClassNLLCriterion, Linear, LogSoftMax, Sequential}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.utils._
 import com.intel.analytics.bigdl.dlframes._
+import com.intel.analytics.bigdl.optim.Adam
+import spark.conn
 
 // Import dos módulos VectorAssembler e Vectors
 import org.apache.spark.ml.feature.VectorAssembler
+import org.apache.spark.ml.feature.StandardScaler
 
-import spark._
+import examples.spark
 
-//Linear Perceptron
-
-object Linearsingle extends App {
+object camadasOcultas extends App {
   import org.apache.log4j.Logger
   import org.apache.log4j.Level
   Logger.getLogger("org").setLevel(Level.ERROR)
 
   val conf = Engine.createSparkConf()
     .setAppName("Linear Single")
-//    .setMaster("local[*]")
+    //    .setMaster("local[*]")
     .set("spark.task.maxFailures", "1")
   val spark = conn(conf)
   Engine.init
   println("BigDL"+BIGDL_VERSION)
 
   import spark.implicits._
-
   // Carregando os dados
   val data = spark.read.option("header","true")
     .option("inferSchema","true")
     .option("mode", "DROPMALFORMED")
     .format("csv")
-    .load("file:///mnt/share/iris.csv")
+    .load("file:///mnt/teste/Iris.csv")
   println(data.count())
   val cleanData = data.na.drop().select(data("Species").as("label").cast("double"),
     $"SepalLengthCm",$"SepalWidthCm",$"PetalLengthCm",$"PetalWidthCm")
@@ -44,38 +46,37 @@ object Linearsingle extends App {
   val assembler = new VectorAssembler()
     .setInputCols(Array("SepalLengthCm","SepalWidthCm","PetalLengthCm","PetalWidthCm"))
     .setOutputCol("features")
-//  Use 'StandardScaler' to scale the features
+  //  Use 'StandardScaler' to scale the features
   val fv = assembler.transform(cleanData).select($"features",$"label")
   fv.show(2)
+  fv.show()
   // Use randomSplit para criar uma divisão em treino e teste em 70/30
-  val Array(training, test) = fv.randomSplit(Array(0.6, 0.4), seed = 12345)
+  val Array(training, test) = fv.randomSplit(Array(0.7, 0.3), seed = 12345)
   val qtd = training.count().toInt
   println(qtd)
+  // Definindo o numero de camadas ocultas
+  val n_input = 4
+  val n_classes = 3
+  // Função para determinar a quantdade de neuronios da primeira camada para iniciar os testes
+  val n_hidden_1 = sqrt(sqrt((n_classes + 2) * n_input) + 2 * sqrt(n_input /(n_classes+2))).toInt + 1
+  println("n camadas 1 = "+n_hidden_1)
+  // Segunda camada
+  val n_hidden_2 = n_classes * sqrt(n_input / (n_classes + 2))
+  println("n camadas 2 = "+n_hidden_2)
   // Incializa um container sequencial
   val nn = Sequential
     .apply()
-    .add(Linear.apply(4,3)) //Adiciona uma camada linear com n_input, n_output
-    // n_input não deve ser inferior a quantidade de colunas do features
-    // n_output não deve ser inferior a ndistict do label
-//    .add(Linear.apply(2,2))
+    .add(Linear.apply(n_input,n_hidden_1))
+    .add(Linear.apply(n_hidden_1, n_classes))
     .add(LogSoftMax.apply())
-
   val criterion = ClassNLLCriterion()
-  val estimator = new DLClassifier(model=nn, criterion=criterion,Array(4))
-    .setMaxEpoch(50)
+  val estimator = new DLClassifier(model=nn, criterion=criterion,Array(n_input))
+    .setMaxEpoch(10)
     .setBatchSize(qtd)
     .setLearningRate(0.1)
     .setLabelCol("label").setFeaturesCol("features")
+//      .setOptimMethod(new Adam[Float](learningRate = 0.1))
   println("Inicio do treino")
-  val dataT = spark.sparkContext.parallelize(Seq(
-    (Array(0.0, 1.0), 1.0),
-    (Array(1.0, 0.0), 2.0),
-    (Array(0.0, 1.0), 1.0),
-    (Array(1.0, 0.0), 2.0)))
-  val df = dataT.toDF("features", "label").repartition(2)
-//  df.printSchema()
-  // Necessário compiar as bibliotecas para o spark
-  // bigdl-SPARK_2.4-0.10.0-jar-with-dependencies.jar para /opt/spark/jars
   val model = estimator.fit(training)
   println("Fim do treino")
   val predictions = model.transform(test)
